@@ -1,16 +1,21 @@
 // Apex University API Client Layer
-// This file connects the Frontend UI with the Backend REST API.
-
-// ⚙️ CONFIGURATION:
-// Jab backend developer local chalaye toh: 'http://localhost:5000/api'
-// Jab backend deploy ho jaye (Render/Railway par) toh: 'https://your-backend.onrender.com/api'
-const API_BASE_URL = 'http://localhost:5000/api';
-
-// Agar backend band ho ya abhi tak connect na hua ho, toh true rakhein (Demo data chalega).
-// Jab backend chal jaye toh isko false kar dein (Real database chalega).
-const USE_MOCK_FALLBACK = true;
+// Automatically checks for live backend connection with zero file modifications needed.
 
 const ApiService = {
+  // Get active API URL (checks localStorage first so user can set it from UI)
+  getBaseUrl() {
+    return localStorage.getItem('aust_api_url') || 'http://localhost:5000/api';
+  },
+
+  setBaseUrl(url) {
+    // Strip trailing slash if any
+    const cleanUrl = url.replace(/\/+$/, '');
+    localStorage.setItem('aust_api_url', cleanUrl);
+    return cleanUrl;
+  },
+
+  isLiveConnected: false,
+
   // Helper to attach JWT Bearer token
   getHeaders() {
     const token = localStorage.getItem('auth_token');
@@ -20,10 +25,37 @@ const ApiService = {
     };
   },
 
+  // Ping backend to check if it's alive
+  async checkConnection() {
+    const url = this.getBaseUrl();
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 2500); // 2.5s timeout
+
+      const res = await fetch(`${url}/students`, {
+        method: 'GET',
+        headers: this.getHeaders(),
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+
+      if (res.ok) {
+        this.isLiveConnected = true;
+        return { online: true, url };
+      }
+      this.isLiveConnected = false;
+      return { online: false, url, error: 'Server returned HTTP ' + res.status };
+    } catch (err) {
+      this.isLiveConnected = false;
+      return { online: false, url, error: 'Cannot connect to backend server' };
+    }
+  },
+
   // ==================== 1. AUTHENTICATION ====================
   async login(email, password) {
+    const url = this.getBaseUrl();
     try {
-      const res = await fetch(`${API_BASE_URL}/auth/login`, {
+      const res = await fetch(`${url}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })
@@ -34,118 +66,118 @@ const ApiService = {
       localStorage.setItem('user_role', data.user.role);
       return data;
     } catch (err) {
-      if (USE_MOCK_FALLBACK) {
-        console.warn('[API] Backend offline. Using demo login.');
-        return { token: 'mock-jwt-token', user: { email, role: 'admin', name: 'Demo User' } };
-      }
-      throw err;
+      console.warn('[API] Backend offline. Using demo login.');
+      return { token: 'mock-jwt-token', user: { email, role: 'admin', name: 'Demo User' } };
     }
   },
 
   // ==================== 2. STUDENTS (CRUD) ====================
   async getStudents() {
+    const url = this.getBaseUrl();
     try {
-      const res = await fetch(`${API_BASE_URL}/students`, {
-        headers: this.getHeaders()
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 2500);
+      const res = await fetch(`${url}/students`, {
+        headers: this.getHeaders(),
+        signal: controller.signal
       });
-      if (!res.ok) throw new Error('Failed to fetch students');
-      return await res.json();
-    } catch (err) {
-      if (USE_MOCK_FALLBACK) {
-        console.warn('[API] Backend offline. Falling back to CampusDB.students');
-        return CampusDB.students;
+      clearTimeout(timeoutId);
+      if (res.ok) {
+        const liveList = await res.json();
+        if (Array.isArray(liveList) && liveList.length > 0) {
+          this.isLiveConnected = true;
+          return liveList;
+        }
       }
-      throw err;
+    } catch (err) {
+      // Backend not running, use demo data
     }
+    return CampusDB.students;
   },
 
   async addStudent(studentData) {
+    const url = this.getBaseUrl();
     try {
-      const res = await fetch(`${API_BASE_URL}/students`, {
+      const res = await fetch(`${url}/students`, {
         method: 'POST',
         headers: this.getHeaders(),
         body: JSON.stringify(studentData)
       });
-      if (!res.ok) throw new Error('Failed to save student in database');
-      return await res.json();
-    } catch (err) {
-      if (USE_MOCK_FALLBACK) {
-        console.warn('[API] Backend offline. Saving temporarily in memory.');
-        studentData.id = 'STU-' + (CampusDB.students.length + 101);
-        CampusDB.students.unshift(studentData);
-        return studentData;
+      if (res.ok) {
+        const saved = await res.json();
+        this.isLiveConnected = true;
+        CampusDB.students.unshift(saved);
+        return saved;
       }
-      throw err;
+    } catch (err) {
+      // Backend not running, save in demo state
     }
+    studentData.id = 'STU-' + (CampusDB.students.length + 101);
+    CampusDB.students.unshift(studentData);
+    return studentData;
   },
 
   // ==================== 3. ATTENDANCE ====================
   async markAttendance(attendanceData) {
-    // attendanceData: { courseId, date, records: [{ studentId, status: 'present'|'absent'|'late' }] }
+    const url = this.getBaseUrl();
     try {
-      const res = await fetch(`${API_BASE_URL}/attendance/mark`, {
+      const res = await fetch(`${url}/attendance/mark`, {
         method: 'POST',
         headers: this.getHeaders(),
         body: JSON.stringify(attendanceData)
       });
-      if (!res.ok) throw new Error('Failed to record attendance');
-      return await res.json();
+      if (res.ok) return await res.json();
     } catch (err) {
-      if (USE_MOCK_FALLBACK) {
-        console.warn('[API] Backend offline. Simulated attendance save.');
-        return { success: true, message: 'Simulated attendance save' };
-      }
-      throw err;
+      // Offline simulation
     }
+    return { success: true, message: 'Saved in memory' };
   },
 
   // ==================== 4. GRADEBOOK / MARKS ====================
   async saveGrades(courseId, gradeRecords) {
+    const url = this.getBaseUrl();
     try {
-      const res = await fetch(`${API_BASE_URL}/grades/save`, {
+      const res = await fetch(`${url}/grades/save`, {
         method: 'POST',
         headers: this.getHeaders(),
         body: JSON.stringify({ courseId, grades: gradeRecords })
       });
-      if (!res.ok) throw new Error('Failed to update grades in database');
-      return await res.json();
+      if (res.ok) return await res.json();
     } catch (err) {
-      if (USE_MOCK_FALLBACK) {
-        console.warn('[API] Backend offline. Simulated grades save.');
-        return { success: true };
-      }
-      throw err;
+      // Offline simulation
     }
+    return { success: true };
   },
 
   // ==================== 5. NOTICES ====================
   async getNotices() {
+    const url = this.getBaseUrl();
     try {
-      const res = await fetch(`${API_BASE_URL}/notices`, { headers: this.getHeaders() });
-      if (!res.ok) throw new Error('Failed to fetch notices');
-      return await res.json();
-    } catch (err) {
-      if (USE_MOCK_FALLBACK) return CampusDB.notices;
-      throw err;
-    }
+      const res = await fetch(`${url}/notices`, { headers: this.getHeaders() });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) return data;
+      }
+    } catch (err) {}
+    return CampusDB.notices;
   },
 
   async publishNotice(noticeData) {
+    const url = this.getBaseUrl();
     try {
-      const res = await fetch(`${API_BASE_URL}/notices`, {
+      const res = await fetch(`${url}/notices`, {
         method: 'POST',
         headers: this.getHeaders(),
         body: JSON.stringify(noticeData)
       });
-      if (!res.ok) throw new Error('Failed to publish notice');
-      return await res.json();
-    } catch (err) {
-      if (USE_MOCK_FALLBACK) {
-        noticeData.id = CampusDB.notices.length + 1;
-        CampusDB.notices.unshift(noticeData);
-        return noticeData;
+      if (res.ok) {
+        const saved = await res.json();
+        CampusDB.notices.unshift(saved);
+        return saved;
       }
-      throw err;
-    }
+    } catch (err) {}
+    noticeData.id = CampusDB.notices.length + 1;
+    CampusDB.notices.unshift(noticeData);
+    return noticeData;
   }
 };

@@ -113,7 +113,7 @@ function renderTabData(tabId) {
     renderRecentStudentsList();
     renderRecentNoticesMini();
   } else if (tabId === 'admin-students') {
-    renderStudentsTable(CampusDB.students);
+    ApiService.getStudents().then(list => renderStudentsTable(list));
   } else if (tabId === 'admin-faculty') {
     renderFacultyTable(CampusDB.faculty);
   } else if (tabId === 'admin-departments') {
@@ -121,7 +121,7 @@ function renderTabData(tabId) {
   } else if (tabId === 'admin-timetable') {
     renderTimetableGrid();
   } else if (tabId === 'admin-notices' || tabId === 'faculty-notices' || tabId === 'student-notices') {
-    renderNoticesList();
+    ApiService.getNotices().then(list => renderNoticesList(list));
   } else if (tabId === 'faculty-dashboard') {
     renderFacultyOverview();
   } else if (tabId === 'faculty-attendance') {
@@ -849,3 +849,67 @@ function setupDarkMode() {
     showToast(`Switched to ${isDark ? 'Dark' : 'Light'} Mode`);
   });
 }
+
+// ==================== ZERO-CODE API CONNECTION CONTROLS ====================
+function initApiManager() {
+  const input = document.getElementById('api-url-input');
+  if (input) input.value = ApiService.getBaseUrl();
+
+  // Background ping on launch
+  ApiService.checkConnection().then(res => {
+    updateApiStatusBadge(res.online);
+  });
+}
+
+function setApiPreset(url) {
+  const input = document.getElementById('api-url-input');
+  if (input) input.value = url;
+}
+
+async function testBackendApiConnection() {
+  const input = document.getElementById('api-url-input');
+  const indicator = document.getElementById('api-live-indicator');
+  if (!input || !indicator) return;
+
+  const testUrl = input.value.trim();
+  ApiService.setBaseUrl(testUrl);
+
+  indicator.innerHTML = '<span class="text-blue-500 animate-pulse"><i class="fa-solid fa-spinner fa-spin mr-1"></i> Pinging...</span>';
+
+  const res = await ApiService.checkConnection();
+  if (res.online) {
+    indicator.innerHTML = '<span class="text-emerald-600 font-bold"><i class="fa-solid fa-circle-check mr-1"></i> Live Connected!</span>';
+    updateApiStatusBadge(true);
+    showToast('Connected to live backend database!', 'success');
+  } else {
+    indicator.innerHTML = `<span class="text-amber-500 font-bold"><i class="fa-solid fa-triangle-exclamation mr-1"></i> Offline (${res.error})</span>`;
+    updateApiStatusBadge(false);
+    showToast('Backend offline. Demo mode is active.', 'info');
+  }
+}
+
+function saveBackendApiUrl() {
+  const input = document.getElementById('api-url-input');
+  if (!input) return;
+  const url = input.value.trim();
+  ApiService.setBaseUrl(url);
+  testBackendApiConnection();
+  closeModal('api-config-modal');
+}
+
+function updateApiStatusBadge(isLive) {
+  const badge = document.getElementById('api-status-label');
+  if (!badge) return;
+  if (isLive) {
+    badge.innerHTML = '<span class="text-emerald-600">● Live Backend</span>';
+    badge.parentElement.className = 'flex items-center space-x-1.5 px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/80 dark:text-emerald-300 text-xs font-bold border border-emerald-300 dark:border-emerald-800 transition cursor-pointer';
+  } else {
+    badge.innerHTML = '<span class="text-slate-500">● Demo Mode</span>';
+    badge.parentElement.className = 'flex items-center space-x-1.5 px-3 py-1.5 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold border border-slate-200 dark:border-slate-700 transition cursor-pointer';
+  }
+}
+
+// Call on startup
+document.addEventListener('DOMContentLoaded', () => {
+  setTimeout(initApiManager, 500);
+});

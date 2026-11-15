@@ -259,6 +259,11 @@
             <i class="fa-regular fa-bell text-base"></i>
             <span class="absolute top-2 right-2 w-2 h-2 bg-rose-500 rounded-full"></span>
           </button>
+          <!-- Backend API Connection Button (Zero Code Changes Needed!) -->
+          <button onclick="openModal('api-config-modal')" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-full bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-950 dark:text-blue-300 text-xs font-bold border border-blue-200 dark:border-blue-800 transition">
+            <i class="fa-solid fa-link text-blue-500"></i>
+            <span id="api-status-label">Connect Backend</span>
+          </button>
           <!-- Live Status Badge -->
           <div class="hidden sm:flex items-center space-x-2 px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 text-xs font-bold border border-emerald-200 dark:border-emerald-800">
             <span class="w-2 h-2 rounded-full bg-emerald-500 status-dot"></span>
@@ -906,6 +911,50 @@
           <button type="submit" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-xl shadow-md">Publish Announcement</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- MODAL: API CONFIGURATION (ZERO CODE MODIFICATIONS) -->
+  <div id="api-config-modal" class="hidden fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl border border-slate-200 dark:border-slate-800 animate-fade-in text-xs">
+      <div class="flex items-center justify-between pb-3 mb-4 border-b border-slate-100 dark:border-slate-800">
+        <h4 class="font-extrabold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+          <i class="fa-solid fa-server text-blue-600"></i> Backend API Connection
+        </h4>
+        <button onclick="closeModal('api-config-modal')" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <div class="space-y-4">
+        <p class="text-slate-500 dark:text-slate-400 leading-relaxed">
+          Jab backend developer aapko server link de, yahan paste karein. Kisi bhi code file ko edit karne ki zaroorat nahi hai!
+        </p>
+
+        <div>
+          <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1.5">Backend API URL:</label>
+          <input id="api-url-input" type="text" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white font-mono text-xs focus:ring-2 focus:ring-blue-500" placeholder="http://localhost:5000/api">
+          <div class="flex space-x-2 mt-2">
+            <button type="button" onclick="setApiPreset('http://localhost:5000/api')" class="text-[11px] px-2.5 py-1 rounded bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 font-mono text-slate-600 dark:text-slate-300">Localhost:5000</button>
+            <button type="button" onclick="setApiPreset('http://127.0.0.1:8000/api')" class="text-[11px] px-2.5 py-1 rounded bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 font-mono text-slate-600 dark:text-slate-300">Django:8000</button>
+          </div>
+        </div>
+
+        <div id="api-test-result" class="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 flex items-center justify-between">
+          <span class="text-slate-500 font-medium">Connection Status:</span>
+          <span id="api-live-indicator" class="font-bold text-slate-700 dark:text-slate-300">Not Tested</span>
+        </div>
+
+        <div class="pt-3 flex justify-between items-center border-t border-slate-100 dark:border-slate-800">
+          <button type="button" onclick="testBackendApiConnection()" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold rounded-xl transition flex items-center space-x-1.5">
+            <i class="fa-solid fa-rotate"></i>
+            <span>Test Connection</span>
+          </button>
+          <button type="button" onclick="saveBackendApiUrl()" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-xl shadow-md transition">
+            Save & Connect
+          </button>
+        </div>
+      </div>
     </div>
   </div>
 
